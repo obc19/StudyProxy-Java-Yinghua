@@ -4,6 +4,25 @@
 
 多账号并行、多课程并行、验证码自动识别，配置文件驱动，Windows / Linux 双平台开箱可用。
 
+---
+
+## 下载可执行包（普通用户看这里）
+
+**不需要编译、不需要装 Maven，解压填账号就能跑。**
+
+👉 **下载页：<https://github.com/obc19/StudyProxy-Java-Yinghua/releases/latest>**
+
+| 平台 | 直接下载 | 解压后如何启动 |
+| --- | --- | --- |
+| Windows 7/10/11 (64 位) | [StudyProxy-Java-windows.zip](https://github.com/obc19/StudyProxy-Java-Yinghua/releases/download/v1.0.0/StudyProxy-Java-windows.zip) | 双击 `start-all.bat` |
+| Linux (CentOS / Ubuntu 等) | [StudyProxy-Java-linux.tar.gz](https://github.com/obc19/StudyProxy-Java-Yinghua/releases/download/v1.0.0/StudyProxy-Java-linux.tar.gz) | `tar -zxf ... && cd StudyProxy-Java-linux && chmod +x start.sh && ./start.sh` |
+
+> ⚠️ **不要点页面上的 `Code` → `Download ZIP`，页底的 `Source code (zip/tar.gz)` 也不要下**
+> —— 那是**源码快照**，拿到的是 `src/`、`pom.xml` 这些代码，必须自己装 JDK + Maven 编译才能用。
+> 你要的「下载就能用」的包，只在上面 **Releases → Assets** 里。
+
+---
+
 > **版本说明**：当前版本**只做视频学习**。考试与作业的自动答题功能已整体移除，
 > 配置文件中的 `autoAnswer` / `aiConfig` 也已删除。若你手里的旧配置含这两项，删除即可，程序会忽略未知字段。
 
@@ -11,6 +30,7 @@
 
 ## 目录
 
+- [下载可执行包（普通用户看这里）](#下载可执行包普通用户看这里)
 - [功能特性](#功能特性)
 - [一、如何使用本仓库（三条路径）](#一如何使用本仓库三条路径)
 - [二、Windows 使用步骤](#二windows-使用步骤)
@@ -45,12 +65,12 @@
 
 ### 路径 A：直接用发布包（推荐给普通用户，不需要开发工具）
 
-仓库 `dist/` 目录下有两个已构建好的压缩包，对应两个平台：
+**首选 [Releases 下载页](https://github.com/obc19/StudyProxy-Java-Yinghua/releases/latest)**，Assets 里就是构建好的可执行包。仓库 `dist/` 目录只作为镜像备份（从 Code → Download ZIP 拿到的副本里也含这两个包，但体积大、不推荐）：
 
 | 平台 | 文件 | 大小 | 内容 |
 | --- | --- | --- | --- |
-| Windows 7/10/11 | `dist/StudyProxy-Java-windows.zip` | ≈18 MB | `StudyProxy.exe` + 配置 + 启动脚本 + OCR 服务 |
-| Linux（CentOS / Ubuntu 等） | `dist/StudyProxy-Java-linux.tar.gz` | ≈18 MB | 可执行 JAR + 配置 + `start.sh` + OCR 服务 |
+| Windows 7/10/11 | `StudyProxy-Java-windows.zip` | ≈18 MB | `StudyProxy.exe` + 配置 + 启动脚本 + OCR 服务 |
+| Linux（CentOS / Ubuntu 等） | `StudyProxy-Java-linux.tar.gz` | ≈18 MB | 可执行 JAR + 配置 + `start.sh` + OCR 服务 |
 
 下载对应平台的包 → 解压 → 改 `config.yaml` 里的账号 → 运行启动脚本。详见第二、三节。
 
