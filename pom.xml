@@ -1,4 +1,4 @@
-﻿﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
@@ -122,4 +122,76 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!-- 仅在 Windows 上打包 EXE 时激活：mvn -P windows-exe package -->
+        <profile>
+            <id>windows-exe</id>
+            <activation>
+                <os>
+                    <family>windows</family>
+                </os>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>com.akathist.maven.plugins.launch4j</groupId>
+                        <artifactId>launch4j-maven-plugin</artifactId>
+                        <version>2.1.2</version>
+                        <executions>
+                            <execution>
+                                <id>l4j-clui</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>launch4j</goal>
+                                </goals>
+                                <configuration>
+                                    <dontWrapJar>false</dontWrapJar>
+                                    <headerType>console</headerType>
+                                    <outfile>target/StudyProxy.exe</outfile>
+                                    <jar>target/StudyProxy-Java-1.0.0.jar</jar>
+                                    <errTitle>StudyProxy</errTitle>
+                                    <chdir>.</chdir>
+                                    <priority>normal</priority>
+                                    <downloadUrl></downloadUrl>
+                                    <supportUrl></supportUrl>
+                                    <stayAlive>false</stayAlive>
+                                    <restartOnCrash>false</restartOnCrash>
+                                    <manifest></manifest>
+                                    <icon></icon>
+                                    <classPath>
+                                        <mainClass>com.studyproxy.StudyProxyApplication</mainClass>
+                                        <addDependencies>false</addDependencies>
+                                        <preCp>anything</preCp>
+                                    </classPath>
+                                    <jre>
+                                        <path></path>
+                                        <bundledJre64Bit>false</bundledJre64Bit>
+                                        <bundledJreAsFallback>false</bundledJreAsFallback>
+                                        <minVersion>1.8.0</minVersion>
+                                        <maxVersion>21.0.0</maxVersion>
+                                        <jdkPreference>preferJre</jdkPreference>
+                                        <runtimeBits>64/32</runtimeBits>
+                                        <initialHeapSize>128</initialHeapSize>
+                                        <maxHeapSize>1024</maxHeapSize>
+                                    </jre>
+                                    <versionInfo>
+                                        <fileVersion>1.0.0.0</fileVersion>
+                                        <txtFileVersion>1.0.0</txtFileVersion>
+                                        <fileDescription>英华学堂自动学习工具</fileDescription>
+                                        <copyright>Copyright (C) 2024</copyright>
+                                        <productVersion>1.0.0.0</productVersion>
+                                        <txtProductVersion>1.0.0</txtProductVersion>
+                                        <productName>StudyProxy</productName>
+                                        <internalName>StudyProxy</internalName>
+                                        <originalFilename>StudyProxy.exe</originalFilename>
+                                    </versionInfo>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

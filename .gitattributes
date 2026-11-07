@@ -1,0 +1,25 @@
+# 统一换行符，避免 Windows 上 clone 后脚本无法在 Linux 执行
+* text=auto
+
+# Shell / Python 必须保持 LF
+*.sh   text eol=lf
+*.py   text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+Dockerfile text eol=lf
+
+# Windows 脚本保持 CRLF
+*.bat  text eol=crlf
+*.ps1  text eol=crlf
+*.cmd  text eol=crlf
+
+# 二进制文件不做任何转换
+*.jar    binary
+*.zip    binary
+*.gz     binary
+*.tar    binary
+*.exe    binary
+*.rar    binary
+*.png    binary
+*.jpg    binary
+*.ico    binary

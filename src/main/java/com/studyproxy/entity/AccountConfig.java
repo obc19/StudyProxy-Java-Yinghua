@@ -25,14 +25,5 @@ public class AccountConfig {
     public static class Settings {
         private boolean autoStart = true;
         private int interval = 30;
-        private boolean autoAnswer = false;
-        private AiConfig aiConfig = new AiConfig();
-    }
-
-    @Data
-    public static class AiConfig {
-        private String aiType = "TONGYI";
-        private String apiKey;
-        private String model;
     }
 }

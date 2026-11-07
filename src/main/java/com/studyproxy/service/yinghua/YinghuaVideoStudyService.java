@@ -5,8 +5,6 @@ import com.alibaba.fastjson2.JSONObject;
 import com.studyproxy.api.yinghua.YinghuaCourseApi;
 import com.studyproxy.api.yinghua.YinghuaLoginApi;
 import com.studyproxy.api.yinghua.YinghuaStudyApi;
-import com.studyproxy.entity.AccountConfig;
-import com.studyproxy.entity.ai.AiConfig;
 import com.studyproxy.entity.yinghua.YinghuaCourse;
 import com.studyproxy.entity.yinghua.YinghuaNode;
 import com.studyproxy.entity.yinghua.YinghuaUserCache;
@@ -21,12 +19,23 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * 视频学习服务。
+ *
+ * <p>当前版本只做视频学习：考试与作业的自动答题逻辑已移除。
+ */
 @Slf4j
 @Service
 public class YinghuaVideoStudyService {
 
+    /** 每次提交学时的间隔（秒） */
     private static final int SUBMIT_INTERVAL_SECONDS = 5;
+
+    /** 每提交多少次学时做一次登录保活 */
     private static final int HEARTBEAT_INTERVAL_SECONDS = 300;
+
+    /** 连续提交失败的最大次数，超过则放弃当前视频，避免死循环 */
+    private static final int MAX_CONSECUTIVE_FAILURES = 5;
 
     @Resource
     private YinghuaCourseApi yinghuaCourseApi;
@@ -36,12 +45,6 @@ public class YinghuaVideoStudyService {
 
     @Resource
     private YinghuaStudyApi yinghuaStudyApi;
-
-    @Resource
-    private YinghuaAiService yinghuaAiService;
-
-    @Resource
-    private AccountConfig accountConfig;
 
     public void studyAllCourses(YinghuaUserCache userCache) {
         log.info("[{}] ========== 开始刷课 ==========", userCache.getAccount());
@@ -65,6 +68,18 @@ public class YinghuaVideoStudyService {
         log.info("[{}] ========== 刷课完成 ==========", userCache.getAccount());
     }
 
+    /**
+     * 学习一门课程中的所有视频节点。
+     *
+     * <p>关于 nodeLock：英华学堂采用「按顺序解锁」机制，第 N 个视频要在第 N-1 个视频
+     * 达到 100% 之后才解锁。章节列表里的 nodeLock 是「拉取那一刻」的快照，遍历过程中
+     * 不会自动变化。所以每完成一个视频后，本地快照里的后续节点仍然显示为锁定状态，
+     * 如果直接据此跳过，就会导致「一门课只刷一个视频」。
+     *
+     * <p>修复方式：遇到锁定节点时，若自上次完成视频以来还没刷新过快照，则重新拉取章节
+     * 列表，用最新数据判断是否真的还锁定；仍然锁定才跳过。刷新只在「刚完成视频」之后
+     * 触发一次，不会对每个节点都发请求。
+     */
     public void studyCourse(YinghuaUserCache userCache, YinghuaCourse course) {
         List<YinghuaNode> nodeList = getFullVideoList(userCache, course.getId());
         log.info("[{}] 课程 [{}] 共 {} 个节点", userCache.getAccount(), course.getName(), nodeList.size());
@@ -74,77 +89,97 @@ public class YinghuaVideoStudyService {
             return;
         }
 
+        int videoTotal = countVideoNodes(nodeList);
+        if (videoTotal == 0) {
+            log.info("[{}] 课程 [{}] 没有视频节点，跳过", userCache.getAccount(), course.getName());
+            return;
+        }
+
         int videoCompleted = 0;
-        int videoTotal = 0;
-        int examCompleted = 0;
-        int examTotal = 0;
-        int workCompleted = 0;
-        int workTotal = 0;
+        int videoLocked = 0;
+        int videoFailed = 0;
 
-        AiConfig aiConfig = getAiConfig();
+        // 初始快照刚拉过，是最新的，所以一开始不需要刷新
+        boolean needRefresh = false;
 
-        log.info("[{}] 开始遍历 {} 个节点...", userCache.getAccount(), nodeList.size());
-        
+        log.info("[{}] 开始遍历 {} 个节点（视频 {} 个）...",
+                userCache.getAccount(), nodeList.size(), videoTotal);
+
         for (int i = 0; i < nodeList.size(); i++) {
             YinghuaNode node = nodeList.get(i);
-            
-            if (node.getTabVideo() != null && node.getTabVideo()) {
-                videoTotal++;
-                try {
-                    if (studyVideo(userCache, node)) {
-                        videoCompleted++;
+
+            if (!isVideoNode(node)) {
+                continue;
+            }
+
+            if (isFinished(node)) {
+                videoCompleted++;
+                continue;
+            }
+
+            // 遇到锁定节点：若自上次完成视频后还没刷新，就用最新快照重新判断
+            if (isLocked(node) && needRefresh) {
+                List<YinghuaNode> refreshed = tryRefreshNodeList(userCache, course);
+                if (refreshed != null && !refreshed.isEmpty()) {
+                    nodeList = refreshed;
+                    needRefresh = false;
+                    YinghuaNode latest = findByNodeId(nodeList, node.getId());
+                    if (latest == null) {
+                        log.warn("[{}] 刷新章节列表后未找到节点 [{}]，跳过", userCache.getAccount(), node.getName());
+                        continue;
                     }
-                } catch (CourseNotStartedException e) {
-                    log.warn("[{}] 课程 [{}] 未到解锁时间已自动跳过", userCache.getAccount(), course.getName());
-                    return;
-                } catch (Exception e) {
-                    log.error("[{}] 视频 [{}] 学习失败: {}", userCache.getAccount(), node.getName(), e.getMessage());
+                    node = latest;
                 }
             }
 
-            if (node.getTabExam() != null && node.getTabExam()) {
-                examTotal++;
-                if (handleExam(userCache, course.getId(), node, aiConfig)) {
-                    examCompleted++;
-                }
+            if (isLocked(node)) {
+                videoLocked++;
+                log.warn("[{}] 视频 [{}] 已锁定，跳过", userCache.getAccount(), node.getName());
+                continue;
             }
 
-            if (node.getTabWork() != null && node.getTabWork()) {
-                workTotal++;
-                if (handleWork(userCache, course.getId(), node, aiConfig)) {
-                    workCompleted++;
+            if (isFinished(node)) {
+                videoCompleted++;
+                continue;
+            }
+
+            try {
+                if (studyVideo(userCache, node)) {
+                    videoCompleted++;
+                    // 刚完成一个视频，后续节点可能已解锁，下次遇到锁定时需要刷新快照
+                    needRefresh = true;
+                } else {
+                    videoFailed++;
                 }
+            } catch (CourseNotStartedException e) {
+                log.warn("[{}] 课程 [{}] 未到解锁时间已自动跳过", userCache.getAccount(), course.getName());
+                return;
+            } catch (Exception e) {
+                videoFailed++;
+                log.error("[{}] 视频 [{}] 学习失败: {}", userCache.getAccount(), node.getName(), e.getMessage());
             }
         }
 
-        log.info("[{}] 课程 [{}] 完成 - 视频:{}/{} 考试:{}/{} 作业:{}/{}",
+        log.info("[{}] 课程 [{}] 完成 - 视频:{}/{} 锁定跳过:{} 失败:{}",
                 userCache.getAccount(), course.getName(),
-                videoCompleted, videoTotal, examCompleted, examTotal, workCompleted, workTotal);
+                videoCompleted, videoTotal, videoLocked, videoFailed);
     }
 
-    private AiConfig getAiConfig() {
-        AccountConfig.Settings settings = accountConfig.getSettings();
-        if (settings != null && settings.isAutoAnswer()) {
-            AccountConfig.AiConfig configAiConfig = settings.getAiConfig();
-            AiConfig aiConfig = new AiConfig();
-            aiConfig.setAiType(AiConfig.AiTypeEnum.fromCode(configAiConfig.getAiType()));
-            aiConfig.setApiKey(configAiConfig.getApiKey());
-            aiConfig.setModel(configAiConfig.getModel());
-            return aiConfig;
-        }
-        return null;
-    }
-
+    /**
+     * 学习单个视频。
+     *
+     * @return 是否真正达到了 100%（锁定 / 失败 / 中断都返回 false）
+     */
     public boolean studyVideo(YinghuaUserCache userCache, YinghuaNode node) {
-        if (node.getTabVideo() == null || !node.getTabVideo()) {
+        if (!isVideoNode(node)) {
             return false;
         }
 
-        if (node.getProgress() != null && node.getProgress() >= 100) {
+        if (isFinished(node)) {
             return true;
         }
 
-        if (node.getNodeLock() != null && node.getNodeLock() == 1) {
+        if (isLocked(node)) {
             log.warn("[{}] 视频 [{}] 已锁定，跳过", userCache.getAccount(), node.getName());
             return false;
         }
@@ -159,16 +194,22 @@ public class YinghuaVideoStudyService {
 
         int videoDuration = videoDurationObj;
         int currentTime = (viewedDurationObj != null) ? viewedDurationObj : 0;
+        if (currentTime < 0) {
+            currentTime = 0;
+        }
         String studyId = "0";
 
         log.info("[{}] 正在学习视频: {}", userCache.getAccount(), node.getName());
 
         int submitCount = 0;
         int heartbeatCount = 0;
+        int consecutiveFailures = 0;
+        boolean completed = false;
 
         while (true) {
-            if (node.getProgress() != null && node.getProgress() >= 100) {
+            if (isFinished(node)) {
                 log.info("[{}] [{}] 学习完毕", userCache.getAccount(), node.getName());
+                completed = true;
                 break;
             }
 
@@ -193,6 +234,7 @@ public class YinghuaVideoStudyService {
                 }
 
                 if (response != null && response.contains("\"status\":true")) {
+                    consecutiveFailures = 0;
                     double progress = (double) currentTime / videoDuration * 100.0;
                     log.info("[{}] [{}] >>> 提交状态：提交学时成功! 观看时间：{}/{} 观看进度：{}%",
                             userCache.getAccount(), node.getName(), currentTime, videoDuration, String.format("%.2f", progress));
@@ -210,6 +252,7 @@ public class YinghuaVideoStudyService {
                     }
 
                     if (currentTime >= videoDuration) {
+                        completed = true;
                         break;
                     }
                 } else {
@@ -218,23 +261,38 @@ public class YinghuaVideoStudyService {
                         JSONObject jsonResponse = JsonUtil.parseObject(response);
                         msg = jsonResponse.getString("msg");
                     }
-                    
+
                     if (msg != null && (msg.contains("未到") || msg.contains("未开始"))) {
                         throw new CourseNotStartedException(msg);
                     }
-                    
+
+                    consecutiveFailures++;
                     log.warn("[{}] [{}] >>> 提交状态：{}", userCache.getAccount(), node.getName(), response);
+
+                    if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+                        log.error("[{}] [{}] 连续 {} 次提交失败，放弃该视频本次学习",
+                                userCache.getAccount(), node.getName(), consecutiveFailures);
+                        break;
+                    }
+
                     try {
                         Thread.sleep(10000);
                     } catch (InterruptedException ie) {
                         Thread.currentThread().interrupt();
+                        break;
                     }
                     continue;
                 }
             } catch (CourseNotStartedException e) {
                 throw e;
             } catch (Exception e) {
+                consecutiveFailures++;
                 log.error("[{}] [{}] 提交学时异常: {}", userCache.getAccount(), node.getName(), e.getMessage());
+                if (consecutiveFailures >= MAX_CONSECUTIVE_FAILURES) {
+                    log.error("[{}] [{}] 连续 {} 次提交异常，放弃该视频本次学习",
+                            userCache.getAccount(), node.getName(), consecutiveFailures);
+                    break;
+                }
             }
 
             if (currentTime < videoDuration) {
@@ -248,30 +306,59 @@ public class YinghuaVideoStudyService {
             }
         }
 
-        return true;
+        return completed;
     }
 
-    private boolean handleExam(YinghuaUserCache userCache, String courseId, YinghuaNode node, AiConfig aiConfig) {
-        log.info("[{}] 开始处理考试: {}", userCache.getAccount(), node.getName());
-        try {
-            yinghuaAiService.autoAnswerExam(userCache, courseId, node.getId(), node.getId(), aiConfig, true);
-            log.info("[{}] 考试 [{}] 完成", userCache.getAccount(), node.getName());
-            return true;
-        } catch (Exception e) {
-            log.error("[{}] 考试 [{}] 处理失败: {}", userCache.getAccount(), node.getName(), e.getMessage());
-            return false;
+    /** 是否为视频节点 */
+    private boolean isVideoNode(YinghuaNode node) {
+        return node != null && Boolean.TRUE.equals(node.getTabVideo());
+    }
+
+    /** 是否已学完 */
+    private boolean isFinished(YinghuaNode node) {
+        return node != null && node.getProgress() != null && node.getProgress() >= 100;
+    }
+
+    /** 是否处于锁定状态 */
+    private boolean isLocked(YinghuaNode node) {
+        return node != null && node.getNodeLock() != null && node.getNodeLock() == 1;
+    }
+
+    private int countVideoNodes(List<YinghuaNode> nodeList) {
+        int count = 0;
+        for (YinghuaNode node : nodeList) {
+            if (isVideoNode(node)) {
+                count++;
+            }
         }
+        return count;
     }
 
-    private boolean handleWork(YinghuaUserCache userCache, String courseId, YinghuaNode node, AiConfig aiConfig) {
-        log.info("[{}] 开始处理作业: {}", userCache.getAccount(), node.getName());
+    private YinghuaNode findByNodeId(List<YinghuaNode> nodeList, String nodeId) {
+        if (nodeId == null) {
+            return null;
+        }
+        for (YinghuaNode node : nodeList) {
+            if (nodeId.equals(node.getId())) {
+                return node;
+            }
+        }
+        return null;
+    }
+
+    /** 重新拉取章节列表；失败时返回 null，调用方沿用旧快照 */
+    private List<YinghuaNode> tryRefreshNodeList(YinghuaUserCache userCache, YinghuaCourse course) {
         try {
-            yinghuaAiService.autoAnswerWork(userCache, node.getId(), node.getId(), aiConfig);
-            log.info("[{}] 作业 [{}] 完成", userCache.getAccount(), node.getName());
-            return true;
+            List<YinghuaNode> refreshed = getFullVideoList(userCache, course.getId());
+            if (refreshed != null && !refreshed.isEmpty()) {
+                log.info("[{}] 已刷新课程 [{}] 的章节列表，重新判断解锁状态",
+                        userCache.getAccount(), course.getName());
+            }
+            return refreshed;
         } catch (Exception e) {
-            log.error("[{}] 作业 [{}] 处理失败: {}", userCache.getAccount(), node.getName(), e.getMessage());
-            return false;
+            log.warn("[{}] 刷新课程 [{}] 章节列表失败: {}",
+                    userCache.getAccount(), course.getName(), e.getMessage());
+            return null;
         }
     }
 

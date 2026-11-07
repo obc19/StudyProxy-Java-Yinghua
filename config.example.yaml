@@ -1,0 +1,111 @@
+# ============================================================
+# StudyProxy-Java 配置文件模板
+# 英华学堂自动学习工具（仅视频学习）
+# ============================================================
+#
+# 用法：
+#   1) 把本文件复制到程序同级目录并改名为 config.yaml
+#        Windows:  copy config.example.yaml config.yaml
+#        Linux  :  cp config.example.yaml config.yaml
+#   2) 按下面注释填写登录地址与账号
+#   3) 保存后重启程序即生效
+#
+# 注意：程序只读取「当前工作目录」下的 ./config.yaml，
+#       请务必在 config.yaml 所在目录中启动程序。
+#
+# **请勿把含真实学号/密码的 config.yaml 提交到公开仓库。**
+# 本地真实配置已被 .gitignore 排除，仓库中只保留本模板。
+# ============================================================
+
+# ============================================
+# 基础设置 (setting)
+# ============================================
+
+setting:
+  # 基础设置
+  basicSetting:
+    # 完成后提示音: 0=关闭, 1=开启
+    completionTone: 1
+    # 彩色日志输出: 0=关闭, 1=开启
+    colorLog: 1
+    # 日志输出到文件: 0=关闭, 1=开启
+    logOutFileSw: 1
+    # 日志级别: DEBUG, INFO, WARN, ERROR
+    logLevel: "INFO"
+    # 日志模式: 0=简洁模式, 1=详细模式
+    logModel: 0
+
+  # 邮件通知设置（暂未使用）
+  emailInform:
+    # 是否开启邮件通知: 0=关闭, 1=开启
+    sw: 0
+    # SMTP服务器地址，如: smtp.qq.com
+    SMTPHost: ""
+    # SMTP服务器端口，如: 587
+    SMTPPort: ""
+    # 发件人邮箱账号
+    userName: ""
+    # 发件人邮箱密码/授权码
+    password: ""
+
+  # OCR服务设置（验证码识别服务）
+  apiQueSetting:
+    # ddddocr 验证码识别服务地址
+    # 本地运行时应是 http://localhost:8083
+    url: "http://localhost:8083"
+
+# OCR服务配置（Java应用读取的配置）
+ocr:
+  service:
+    url: "http://localhost:8083"
+
+# ============================================
+# 平台配置 (studyproxy)
+# ============================================
+
+studyproxy:
+  # 英华学堂平台配置
+  yinghua:
+    # 平台类型，固定为 Android
+    platform: Android
+    # 英华学堂APP版本号
+    version: 1.4.8
+
+  # HTTP客户端配置
+  http:
+    # 连接超时时间（毫秒）
+    connect-timeout: 30000
+    # 读取超时时间（毫秒）
+    read-timeout: 30000
+    # 写入超时时间（毫秒）
+    write-timeout: 30000
+    # 请求失败重试次数
+    retry-times: 3
+
+# ============================================
+# 账号配置 (accounts)
+# ============================================
+
+accounts:
+  yinghua:
+    # ---------------- 账号模板 （复制整段后修改）----------------
+    # account  : 学号 / 登录用户名
+    # password : 登录密码
+    # preUrl   : 学校英华学堂地址，**必须以 / 结尾**
+    #            （浏览器登录页去掉登录后路径即是，例如 https://cqcst.suwankj.com/）
+    - account: "你的学号1"
+      password: "你的密码1"
+      preUrl: "https://你的学校域名.suwankj.com/"
+
+    - account: "你的学号2"
+      password: "你的密码2"
+      preUrl: "https://你的学校域名.suwankj.com/"
+
+    # 需要更多账号时继续往下追加即可，数量不限（每个账号并行执行）
+
+  # 刷课设置
+  settings:
+    # 启动后自动开始刷课: true=自动开始, false=手动开始
+    autoStart: true
+    # 提交学时间隔（秒），建议 10-30，过小可能被服务端风控
+    interval: 10

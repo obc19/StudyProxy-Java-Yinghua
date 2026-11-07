@@ -15,7 +15,7 @@ import java.util.concurrent.TimeUnit;
 @Service
 public class DdddOcrService {
 
-    @Value("${ocr.service.url:http://localhost:5000}")
+    @Value("${ocr.service.url:http://localhost:8083}")   // 修改默认值，指向本地 OCR 服务
     private String ocrServiceUrl;
 
     private OkHttpClient httpClient;
@@ -31,9 +31,14 @@ public class DdddOcrService {
         log.info("DdddOcrService initialized, url: {}", ocrServiceUrl);
     }
 
+    /**
+     * 识别图片中的文字（图片字节数组）
+     * @param imageData 图片字节数组
+     * @return 识别出的文字
+     */
     public String recognize(byte[] imageData) {
         log.info("OCR recognize called, image size: {} bytes", imageData.length);
-        
+
         String base64Image = Base64.getEncoder().encodeToString(imageData);
         String jsonBody = "{\"image\":\"" + base64Image + "\"}";
 
@@ -44,10 +49,10 @@ public class DdddOcrService {
                 .build();
 
         log.info("Sending OCR request to: {}", ocrServiceUrl + "/ocr");
-        
+
         try (Response response = httpClient.newCall(request).execute()) {
             log.info("OCR response received, code: {}", response.code());
-            
+
             if (!response.isSuccessful()) {
                 log.error("OCR service returned error: {}", response.code());
                 throw new RuntimeException("OCR service error: " + response.code());
@@ -55,9 +60,9 @@ public class DdddOcrService {
 
             String responseBody = response.body().string();
             log.info("OCR response body: {}", responseBody);
-            
+
             JSONObject result = JSONObject.parseObject(responseBody);
-            
+
             if (result.containsKey("error")) {
                 log.error("OCR recognition error: {}", result.getString("error"));
                 throw new RuntimeException("OCR error: " + result.getString("error"));
@@ -66,13 +71,18 @@ public class DdddOcrService {
             String text = result.getString("text");
             log.info("OCR result: {}", text);
             return text != null ? text.trim() : "";
-            
+
         } catch (IOException e) {
             log.error("OCR service call failed: {}", e.getMessage());
             throw new RuntimeException("OCR service call failed: " + e.getMessage(), e);
         }
     }
 
+    /**
+     * 识别图片 URL 中的文字
+     * @param imageUrl 图片 URL
+     * @return 识别出的文字
+     */
     public String recognizeFromUrl(String imageUrl) {
         String jsonBody = "{\"url\":\"" + imageUrl + "\"}";
 
@@ -90,7 +100,7 @@ public class DdddOcrService {
 
             String responseBody = response.body().string();
             JSONObject result = JSONObject.parseObject(responseBody);
-            
+
             if (result.containsKey("error")) {
                 log.error("OCR recognition error: {}", result.getString("error"));
                 throw new RuntimeException("OCR error: " + result.getString("error"));
@@ -99,13 +109,17 @@ public class DdddOcrService {
             String text = result.getString("text");
             log.info("OCR result from URL: {}", text);
             return text != null ? text.trim() : "";
-            
+
         } catch (IOException e) {
             log.error("OCR service call failed: {}", e.getMessage());
             throw new RuntimeException("OCR service call failed: " + e.getMessage(), e);
         }
     }
 
+    /**
+     * 检查 OCR 服务健康状态
+     * @return 是否健康
+     */
     public boolean isHealthy() {
         Request request = new Request.Builder()
                 .url(ocrServiceUrl + "/health")
@@ -115,6 +129,7 @@ public class DdddOcrService {
         try (Response response = httpClient.newCall(request).execute()) {
             return response.isSuccessful();
         } catch (IOException e) {
+            log.warn("Health check failed: {}", e.getMessage());
             return false;
         }
     }

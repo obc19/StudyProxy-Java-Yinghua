@@ -164,31 +164,45 @@ public class YinghuaCourseApi {
 
         validateResponse(response);
 
+        log.debug("[getVideoList] 响应: {}", response);
+
         JSONObject jsonResponse = JsonUtil.parseObject(response);
         if (!"获取数据成功".equals(jsonResponse.getString("msg"))) {
             throw new RuntimeException("获取视频列表失败: " + response);
         }
 
         JSONObject result = jsonResponse.getJSONObject("result");
+        if (result == null) {
+            log.warn("[getVideoList] result为空，响应: {}", response);
+            return new ArrayList<>();
+        }
+
         JSONArray list = result.getJSONArray("list");
+        if (list == null || list.isEmpty()) {
+            log.warn("[getVideoList] list为空，courseId: {}", courseId);
+            return new ArrayList<>();
+        }
 
         List<YinghuaNode> nodeList = new ArrayList<>();
 
-        if (list != null) {
-            for (int i = 0; i < list.size(); i++) {
-                JSONObject chapter = list.getJSONObject(i);
-                String chapterId = String.valueOf(chapter.getInteger("id"));
-                JSONArray nodeListJson = chapter.getJSONArray("nodeList");
+        for (int i = 0; i < list.size(); i++) {
+            JSONObject chapter = list.getJSONObject(i);
+            String chapterId = String.valueOf(chapter.getInteger("id"));
+            JSONArray nodeListJson = chapter.getJSONArray("nodeList");
 
-                if (nodeListJson != null) {
-                    for (int j = 0; j < nodeListJson.size(); j++) {
-                        JSONObject node = nodeListJson.getJSONObject(j);
+            if (nodeListJson != null) {
+                for (int j = 0; j < nodeListJson.size(); j++) {
+                    JSONObject node = nodeListJson.getJSONObject(j);
+                    try {
                         YinghuaNode yinghuaNode = new YinghuaNode();
                         yinghuaNode.setId(String.valueOf(node.getInteger("id")));
                         yinghuaNode.setCourseId(courseId);
                         yinghuaNode.setChapterId(chapterId);
                         yinghuaNode.setName(node.getString("name"));
-                        yinghuaNode.setVideoDuration(Integer.parseInt(node.getString("videoDuration")));
+
+                        String videoDurationStr = node.getString("videoDuration");
+                        yinghuaNode.setVideoDuration(videoDurationStr != null ? Integer.parseInt(videoDurationStr) : 0);
+
                         yinghuaNode.setNodeLock(node.getInteger("nodeLock"));
                         yinghuaNode.setTabVideo(node.getBoolean("tabVideo"));
                         yinghuaNode.setTabFile(node.getBoolean("tabFile"));
@@ -196,6 +210,8 @@ public class YinghuaCourseApi {
                         yinghuaNode.setTabWork(node.getBoolean("tabWork"));
 
                         nodeList.add(yinghuaNode);
+                    } catch (Exception e) {
+                        log.warn("[getVideoList] 解析节点失败: {}, 错误: {}", node.toString(), e.getMessage());
                     }
                 }
             }

@@ -1,0 +1,31 @@
+src/main/java/com/studyproxy/
+├── StudyProxyApplication.java      # 主入口
+├── action/                          # 业务动作层
+│   ├── YinghuaLoginAction.java     # 登录动作
+│   ├── YinghuaCourseAction.java    # 课程动作
+│   └── YinghuaStudyAction.java     # 学习动作
+├── api/yinghua/                     # API调用层
+│   ├── YinghuaLoginApi.java        # 登录API
+│   ├── YinghuaCourseApi.java       # 课程API
+│   ├── YinghuaStudyApi.java        # 学习API
+│   └── YinghuaExamApi.java         # 考试API
+├── service/                         # 服务层
+│   ├── yinghua/
+│   │   ├── YinghuaVideoStudyService.java  # 视频刷课服务
+│   │   └── YinghuaAiService.java          # AI答题服务
+│   ├── ocr/
+│   │   └── DdddOcrService.java     # OCR服务
+│   └── ai/
+│       └── AiService.java          # AI接口
+├── entity/yinghua/                  # 实体类
+│   ├── YinghuaUserCache.java       # 用户缓存
+│   ├── YinghuaCourse.java          # 课程实体
+│   ├── YinghuaNode.java            # 节点实体
+│   ├── YinghuaExam.java            # 考试实体
+│   └── YinghuaWork.java            # 作业实体
+├── config/                          # 配置类
+│   ├── YinghuaConfig.java          # 英华配置
+│   └── StudyProxyConfig.java       # 全局配置
+└── util/                            # 工具类
+    ├── HttpUtil.java               # HTTP工具
+    └── JsonUtil.java               # JSON工具

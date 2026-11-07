@@ -1,0 +1,40 @@
+services:
+  # Java 主服务
+  studyproxy:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: studyproxy
+    volumes:
+      - ./config.yaml:/app/config.yaml:ro
+      - ./logs:/app/logs
+    environment:
+      - JAVA_OPTS=-Xmx512m -Xms256m
+    depends_on:
+      ddddocr:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - studyproxy-network
+
+  # Python OCR 识别服务
+  ddddocr:
+    build:
+      context: .
+      dockerfile: ocr_service.dockerfile
+    container_name: ddddocr
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    ports:
+      - "8083:8083"          # 宿主机 8083 映射到容器 8083
+    restart: unless-stopped
+    networks:
+      - studyproxy-network
+
+networks:
+  studyproxy-network:
+    driver: bridge
