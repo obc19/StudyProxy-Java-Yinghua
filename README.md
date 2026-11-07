@@ -347,7 +347,7 @@ StudyProxy-Java-Yinghua/
 │   └── make_*.py               打包脚本
 ├── ocr_service.py              ddddocr 验证码识别 HTTP 服务（8083）
 ├── requirements.txt            OCR 依赖
-├── start.sh                    Linux 启动脚本
+├── release-linux/              Linux 启动脚本源码（start.sh / make_tar.py 等）
 ├── start-all.bat               Windows 启动脚本
 └── Dockerfile / docker-compose.yml
 ```
