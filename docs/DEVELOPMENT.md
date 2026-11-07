@@ -27,8 +27,8 @@ mvn clean install
 ### 1.4 启动OCR服务
 
 ```bash
-pip install ddddocr flask
-python ocr_service.py
+pip install -r ocr/requirements.txt
+python ocr/ocr_service.py
 ```
 
 ### 1.5 运行项目
@@ -58,8 +58,11 @@ StudyProxy-Java-yinghua/
 │   │       └── logback-spring.xml            # 日志配置
 │   └── test/                                 # 测试代码
 ├── docs/                                     # 文档目录
-├── config.yaml                               # 账号配置
-├── ocr_service.py                            # OCR服务
+├── config.example.yaml                       # 配置模板（复制为 config.yaml）
+├── ocr/                                      # 验证码识别服务
+├── deploy/                                   # 部署脚本与 Docker 文件
+├── scripts/                                  # 构建与打包脚本
+├── dist/                                     # 发布包
 ├── pom.xml                                   # Maven配置
 └── README.md                                 # 项目说明
 ```

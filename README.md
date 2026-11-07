@@ -88,14 +88,20 @@ Windows 额外产出 `target/StudyProxy.exe`（`windows-exe` profile 自动启�
 ### 路径 C：只要配置模板或 OCR 服务
 
 - 配置模板：仓库根目录 `config.example.yaml`（含逐字段中文注释），复制为 `config.yaml` 后改账号即可。
-- OCR 服务：`ocr_service.py` + `requirements.txt`，可单独部署为 HTTP 服务，任何程序都能调用：
+- OCR 服务：`ocr/ocr_service.py` + `ocr/requirements.txt`，可单独部署为 HTTP 服务，任何程序都能调用：
 
 ```bash
-pip install -r requirements.txt
-python ocr_service.py            # 默认监听 0.0.0.0:8083
+pip install -r ocr/requirements.txt
+python ocr/ocr_service.py            # 默认监听 0.0.0.0:8083
 
 curl http://localhost:8083/health
 # POST /ocr  body: base64 图片字符串，或 multipart/form-data 字段名 image
+```
+
+- 部署脚本与 Docker 文件：`deploy/linux/`、`deploy/windows/`、`deploy/docker/`，打包时会被复制进对应发布包。
+
+```bash
+docker compose -f deploy/docker/docker-compose.yml up -d
 ```
 
 ---
@@ -324,14 +330,19 @@ mvn clean package -DskipTests
 
 ### 5.3 仓库自带构建脚本
 
-| 脚本 | 用途 |
-| --- | --- |
-| `build-exe.bat` | Windows：清理 → 编译 → 生成 `StudyProxy.exe` |
-| `build-linux.sh` | Linux：编译并生成 `dist/StudyProxy-Java-linux/` 与 `.tar.gz` |
-| `build-linux.ps1` | Windows 上交叉生成 Linux 精简包 |
-| `create-release.bat` / `create-release.ps1` | 组装通用 release 目录 |
-| `dist/make_zip_release.py` | 把 `dist/StudyProxy-Java-windows/` 打成 zip |
-| `dist/make_tar_release.py` | 把 `dist/StudyProxy-Java-linux/` 打成 tar.gz（保留 `start.sh` 可执行位） |
+脚本统一放在 `scripts/`，内部会自动切回仓库根目录，**在任意位置调用都可以**。
+
+| 脚本 | 平台 | 用途 |
+| --- | --- | --- |
+| `scripts/build-exe.bat` | Windows | 清理 → 编译 → 生成 `target/StudyProxy.exe` → 打包 `dist/StudyProxy-Java-windows.zip` |
+| `scripts/build-linux.bat` | Windows | `build-linux.ps1` 的快捷入口 |
+| `scripts/build-linux.ps1` | Windows | 编译 → 打包 `dist/StudyProxy-Java-linux/` 与 `.tar.gz` |
+| `scripts/build-linux.sh` | Linux | 同上（`./scripts/build-linux.sh --clean` 可先清理） |
+| `scripts/make_zip_release.py` | 跨平台 | 只做组装 + 压缩 Windows 包（不编译，需已有 `target/StudyProxy.exe`） |
+| `scripts/make_tar_release.py` | 跨平台 | 只做组装 + 压缩 Linux 包（不编译，需已有 `target/*.jar`） |
+
+> 打包脚本**固定使用 `config.example.yaml`** 作为包内配置模板，不会把本地已填真实账号的 `config.yaml` 打进发布包。
+> 两个 `make_*_release.py` 均支持 `--dest DIR`，可输出到指定目录用于自测。
 
 ### 5.4 运行（开发态）
 
@@ -345,32 +356,63 @@ java -Dfile.encoding=UTF-8 -jar target/StudyProxy-Java-1.0.0.jar
 
 ## 六、仓库结构与文件说明
 
+根目录只保留入口文件，其余按职能分目录，**改哪里就去哪个目录找**。
+
 ```
 StudyProxy-Java-Yinghua/
+├── README.md                    项目说明（本文件）
+├── LICENSE                      MIT 协议
 ├── pom.xml                      Maven 配置（Spring Boot 2.7.18 / Java 8）
-├── config.example.yaml          配置模板（提交入库，含完整注释）
-├── src/main/java/com/studyproxy/
-│   ├── StudyProxyApplication.java   启动类
-│   ├── action/                 业务动作（登录、选课、学习调度）
-│   ├── api/yinghua/            英华学堂 HTTP 接口封装
-│   ├── service/                业务服务（含 service/ocr 验证码识别）
-│   ├── config/                 配置绑定与初始化
-│   ├── entity/ dto/ enums/     数据模型
-│   └── util/                   工具类
-├── src/main/resources/
-│   ├── application.yml         引入外部 ./config.yaml
-│   └── logback-spring.xml      日志格式
-├── docs/                       架构、API、配置、部署、开发文档
-├── dist/                       发布包
-│   ├── StudyProxy-Java-windows.zip
-│   ├── StudyProxy-Java-linux.tar.gz
-│   └── make_*.py               打包脚本
-├── ocr_service.py              ddddocr 验证码识别 HTTP 服务（8083）
-├── requirements.txt            OCR 依赖
-├── release-linux/              Linux 启动脚本源码（start.sh / make_tar.py 等）
-├── start-all.bat               Windows 启动脚本
-└── Dockerfile / docker-compose.yml
+├── config.example.yaml          配置模板（复制为 config.yaml 使用）
+├── .gitignore / .gitattributes  版本控制规则
+│
+├── src/                         Java 源码
+│   ├── main/java/com/studyproxy/
+│   │   ├── StudyProxyApplication.java   启动类
+│   │   ├── action/                      业务动作（登录、选课、学习调度）
+│   │   ├── api/yinghua/                 英华学堂 HTTP 接口封装
+│   │   ├── service/                     业务服务（含 service/ocr 验证码识别）
+│   │   ├── config/ entity/ dto/ enums/ util/
+│   │   └── ...
+│   └── main/resources/
+│       ├── application.yml              引入外部 ./config.yaml
+│       └── logback-spring.xml           日志格式
+│
+├── ocr/                         验证码识别服务（可独立部署）
+│   ├── ocr_service.py           ddddocr HTTP 服务，默认 8083
+│   └── requirements.txt         flask / ddddocr / requests
+│
+├── deploy/                      部署相关素材（不进包，打包时按需取用）
+│   ├── linux/
+│   │   ├── start.sh             Linux 启动脚本（自动装依赖、拉起 OCR）
+│   │   └── README.md            Linux 包内使用说明
+│   ├── windows/
+│   │   ├── start-all.bat        Windows 一键启动脚本
+│   │   └── README.md            Windows 包内使用说明
+│   └── docker/
+│       ├── Dockerfile                   主程序镜像
+│       ├── ocr_service.dockerfile       OCR 镜像
+│       └── docker-compose.yml           一键起主程序 + OCR
+│
+├── scripts/                     构建与打包
+│   ├── build-exe.bat            Windows：编译并出 Windows 包
+│   ├── build-linux.bat/.ps1     Windows：编译并出 Linux 包
+│   ├── build-linux.sh           Linux：编译并出 Linux 包
+│   ├── make_zip_release.py      组装 + 压缩 Windows 包
+│   └── make_tar_release.py      组装 + 压缩 Linux 包
+│
+├── docs/                        文档
+│   ├── INDEX.md                 文档索引
+│   ├── ARCHITECTURE.md / API.md / CONFIGURATION.md
+│   ├── DEPLOYMENT.md / DEVELOPMENT.md
+│   └── 架构.txt                 源码目录与模块速查
+│
+└── dist/                        发布产物（仅提交两个压缩包）
+    ├── StudyProxy-Java-windows.zip
+    └── StudyProxy-Java-linux.tar.gz
 ```
+
+> `target/`、`logs/`、`dist/StudyProxy-Java-*/`（解压目录）、`config.yaml` 均为生成物或私有配置，已被 `.gitignore` 排除。
 
 ---
 

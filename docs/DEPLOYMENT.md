@@ -260,7 +260,7 @@ WORKDIR /app
 # 复制文件
 COPY target/StudyProxy-Java-1.0.0.jar app.jar
 COPY config.yaml config.yaml
-COPY ocr_service.py ocr_service.py
+COPY ocr/ocr_service.py ocr_service.py
 
 # 暴露端口 (OCR服务)
 EXPOSE 5000
@@ -304,7 +304,7 @@ services:
     restart: always
     working_dir: /app
     volumes:
-      - ./ocr_service.py:/app/ocr_service.py
+      - ./ocr/ocr_service.py:/app/ocr_service.py
     command: >
       bash -c "pip install ddddocr flask && python ocr_service.py"
     ports:

@@ -34,32 +34,23 @@
 ## 项目结构
 
 ```
-StudyProxy-Java-yinghua/
-├── src/main/java/com/studyproxy/
-│   ├── StudyProxyApplication.java    # 主入口
-│   ├── action/                       # 业务动作层
-│   ├── api/                          # API调用层
-│   ├── service/                      # 服务层
-│   ├── entity/                       # 实体类
-│   ├── config/                       # 配置类
-│   ├── enums/                        # 枚举类
-│   ├── exception/                    # 异常类
-│   └── util/                         # 工具类
-├── src/main/resources/
-│   ├── application.yml               # Spring配置
-│   └── logback-spring.xml            # 日志配置
-├── docs/                             # 文档目录
-│   ├── INDEX.md                      # 文档索引
-│   ├── ARCHITECTURE.md               # 架构文档
-│   ├── API.md                        # API文档
-│   ├── CONFIGURATION.md              # 配置文档
-│   ├── DEVELOPMENT.md                # 开发文档
-│   └── DEPLOYMENT.md                 # 部署文档
-├── config.yaml                       # 账号配置
-├── ocr_service.py                    # OCR服务
-├── pom.xml                           # Maven配置
-└── README.md                         # 项目说明
+StudyProxy-Java-Yinghua/
+├── README.md               # 项目说明（入口）
+├── pom.xml                 # Maven 配置
+├── config.example.yaml     # 配置模板（复制为 config.yaml）
+├── src/                    # Java 源码
+│   └── main/java/com/studyproxy/
+│       ├── StudyProxyApplication.java
+│       ├── action/  api/  service/  config/
+│       └── entity/  enums/  exception/  util/
+├── ocr/                    # 验证码识别服务（ocr_service.py + requirements.txt）
+├── deploy/                 # 部署素材（linux / windows / docker）
+├── scripts/                # 构建与打包脚本
+├── docs/                   # 本文档目录
+└── dist/                   # 发布包（Windows zip / Linux tar.gz）
 ```
+
+完整说明见 [README.md 第六节](../README.md#六仓库结构与文件说明)。
 
 ## 核心功能
 
@@ -75,13 +66,7 @@ StudyProxy-Java-yinghua/
 - 识别失败自动重试
 - 支持自定义OCR服务
 
-### 3. AI自动答题
-
-- 支持豆包、通义千问等AI
-- 支持单选、多选、判断等题型
-- 未配置AI时随机答题
-
-### 4. 错误处理
+### 3. 错误处理
 
 - 账号密码错误自动退出
 - 网络请求失败自动重试

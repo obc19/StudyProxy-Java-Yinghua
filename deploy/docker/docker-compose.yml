@@ -1,13 +1,20 @@
+# Docker 部署（本文件位于 deploy/docker/，构建上下文指向仓库根目录）
+#
+# 前置：
+#   1. mvn package 生成 target/StudyProxy-Java-1.0.0.jar
+#   2. 把 config.example.yaml 复制为仓库根目录的 config.yaml 并填写账号
+# 启动：
+#   docker compose -f deploy/docker/docker-compose.yml up -d
 services:
   # Java 主服务
   studyproxy:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ../..
+      dockerfile: deploy/docker/Dockerfile
     container_name: studyproxy
     volumes:
-      - ./config.yaml:/app/config.yaml:ro
-      - ./logs:/app/logs
+      - ../../config.yaml:/app/config.yaml:ro
+      - ../../logs:/app/logs
     environment:
       - JAVA_OPTS=-Xmx512m -Xms256m
     depends_on:
@@ -20,8 +27,8 @@ services:
   # Python OCR 识别服务
   ddddocr:
     build:
-      context: .
-      dockerfile: ocr_service.dockerfile
+      context: ../..
+      dockerfile: deploy/docker/ocr_service.dockerfile
     container_name: ddddocr
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8083/health"]
